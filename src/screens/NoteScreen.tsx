@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { View, TextInput, Button, StyleSheet, Alert, FlatList, Text, TouchableOpacity } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { FontAwesome } from '@expo/vector-icons'; // Certifique-se de ter o pacote @expo/vector-icons instalado
 
 const NoteScreen = () => {
   const [note, setNote] = useState('');
   const [notes, setNotes] = useState<string[]>([]);
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
 
   useEffect(() => {
     const loadNotes = async () => {
@@ -28,7 +30,13 @@ const NoteScreen = () => {
     }
 
     try {
-      const newNotes = [...notes, note];
+      let newNotes;
+      if (editingIndex !== null) {
+        newNotes = notes.map((item, index) => (index === editingIndex ? note : item));
+        setEditingIndex(null);
+      } else {
+        newNotes = [...notes, note];
+      }
       await AsyncStorage.setItem('notes', JSON.stringify(newNotes));
       setNotes(newNotes);
       setNote('');
@@ -40,13 +48,18 @@ const NoteScreen = () => {
 
   const deleteNote = async (index: number) => {
     try {
-      const updatedNotes = notes.filter((_, i) => i !== index); // Remove a nota com base no índice
+      const updatedNotes = notes.filter((_, i) => i !== index);
       await AsyncStorage.setItem('notes', JSON.stringify(updatedNotes));
       setNotes(updatedNotes);
       Alert.alert('Success', 'Note deleted successfully!');
     } catch (error) {
       Alert.alert('Error', 'Failed to delete the note.');
     }
+  };
+
+  const editNote = (index: number) => {
+    setNote(notes[index]);
+    setEditingIndex(index);
   };
 
   return (
@@ -57,16 +70,21 @@ const NoteScreen = () => {
         value={note}
         onChangeText={setNote}
       />
-      <Button title="Save Note" onPress={saveNote} />
+      <Button title={editingIndex !== null ? "Update Note" : "Save Note"} onPress={saveNote} />
       <FlatList
         data={notes}
         keyExtractor={(item, index) => index.toString()}
         renderItem={({ item, index }) => (
           <View style={styles.noteContainer}>
             <Text style={styles.noteText}>{item}</Text>
-            <TouchableOpacity style={styles.deleteButton} onPress={() => deleteNote(index)}>
-              <Text style={styles.deleteButtonText}>Delete</Text>
-            </TouchableOpacity>
+            <View style={styles.buttonContainer}>
+              <TouchableOpacity style={styles.editButton} onPress={() => editNote(index)}>
+                <FontAwesome name="edit" size={24} color="blue" />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.deleteButton} onPress={() => deleteNote(index)}>
+                <FontAwesome name="trash" size={24}  />
+              </TouchableOpacity>
+            </View>
           </View>
         )}
       />
@@ -97,14 +115,16 @@ const styles = StyleSheet.create({
   noteText: {
     flex: 1,
   },
+  buttonContainer: {
+    flexDirection: 'row',
+  },
+  editButton: {
+    marginRight: 8,
+  },
   deleteButton: {
     backgroundColor: 'red',
     padding: 8,
     borderRadius: 4,
-  },
-  deleteButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
   },
 });
 
